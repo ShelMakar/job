@@ -1,0 +1,270 @@
+openapi: 3.0.0
+info:
+  title: Referral System API
+  description: API для управления системой рефералов
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Локальный сервер
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Уникальный идентификатор пользователя
+        email:
+          type: string
+          format: email
+          description: Электронная почта пользователя
+        password:
+          type: string
+          format: password
+          description: Пароль пользователя
+          
+    ReferralCode:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Уникальный идентификатор реферального кода
+        code:
+          type: string
+          description: Реферальный код
+        user_id:
+          type: integer
+          format: int64
+          description: Идентификатор пользователя
+        expiry_date:
+          type: string
+          format: date-time
+          description: Дата истечения срока действия реферального кода
+          
+    Referral:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Уникальный идентификатор реферала
+        referrer_id:
+          type: integer
+          format: int64
+          description: Идентификатор пользователя-реферера
+        referred_id:
+          type: integer
+          format: int64
+          description: Идентификатор реферируемого пользователя
+          
+securitySchemes:
+  JWTAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT
+
+paths:
+  /register:
+    post:
+      summary: Регистрация нового пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: Пользователь успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение о успешной регистрации
+                    
+  /login:
+    post:
+      summary: Вход пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Электронная почта пользователя
+                password:
+                  type: string
+                  format: password
+                  description: Пароль пользователя
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: JWT токен для аутентификации
+        '401':
+          description: Неверные учетные данные
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об ошибке аутентификации
+  /referral-code:
+    post:
+      summary: Создание реферального кода
+      description: Создает новый реферальный код для текущего пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  description: Реферальный код
+                expiry_date:
+                  type: string
+                  format: date
+                  description: Дата истечения срока действия реферального кода
+      security:
+        - JWTAuth: []
+      responses:
+        '201':
+          description: Реферральный код успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение о создании реферрального кода
+
+  /delete-referral-code:
+    delete:
+      summary: Удаление реферального кода
+      description: Удаляет реферальный код текущего пользователя
+      security:
+        - JWTAuth: []
+      responses:
+        '200':
+          description: Реферральный код успешно удален
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешном удалении реферрального кода
+        '404':
+          description: У пользователя не найден реферальный код
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение о том, что у пользователя нет реферрального кода
+
+  /register-by-referral-code:
+    post:
+      summary: Регистрация по реферальному коду
+      description: Регистрирует нового пользователя с использованием реферального кода
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Электронная почта пользователя
+                password:
+                  type: string
+                  description: Пароль пользователя
+                referral_code:
+                  type: string
+                  description: Реферальный код
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован с помощью реферального кода
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение о успешной регистрации
+        '400':
+          description: Некорректный реферральный код
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение о некорректном реферральном коде
+
+  /referrals/{referrer_id}:
+    get:
+      summary: Получение информации о рефералах
+      description: Возвращает список идентификаторов рефералов для указанного реферера
+      parameters:
+        - in: path
+          name: referrer_id
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Идентификатор реферера
+      security:
+        - JWTAuth: []
+      responses:
+        '200':
+          description: Список идентификаторов рефералов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  referrals:
+                    type: array
+                    items:
+                      type: integer
+                      format: int64
+                    description: Идентификаторы рефералов
+        '401':
+          description: Пользователь неавторизован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об ошибке авторизации
