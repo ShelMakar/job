@@ -13,6 +13,8 @@ jwt = JWTManager(app)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+# Модели
+
 # Модель пользователя
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -26,6 +28,7 @@ class ReferralCode(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     expiry_date = db.Column(db.DateTime, nullable=False)
 
+# Модель реферала
 class Referral(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     referrer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -37,16 +40,18 @@ class Referral(db.Model):
 with app.app_context():
     db.create_all()
 
-# Endpoint для регистрации нового пользователя
+# Эндпоинты
+
+# Регистрация нового пользователя
 @app.route('/register', methods=['POST'])
 async def register():
     data = await request.get_json()
     new_user = User(email=data['email'], password=data['password'])
     db.session.add(new_user)
     await db.session.commit()
-    return jsonify({'message': 'User created successfully'}), 201
+    return jsonify({'message': 'Пользователь успешно создан'}), 201
 
-# Endpoint для аутентификации пользователя и выдачи JWT токена
+# Аутентификация пользователя и выдача JWT токена
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -54,10 +59,9 @@ def login():
     if user and user.password == data['password']:
         access_token = create_access_token(identity=user.id)
         return jsonify(access_token=access_token), 200
-    else:
-        return jsonify({'message': 'Invalid credentials'}), 401
+    return jsonify({'message': 'Неверные учетные данные'}), 401
 
-# Endpoint для создания реферального кода
+# Создание реферального кода
 @app.route('/referral-code', methods=['POST'])
 @jwt_required()
 def create_referral_code():
@@ -72,9 +76,9 @@ def create_referral_code():
     new_referral_code = ReferralCode(code=data['code'], user_id=current_user_id, expiry_date=expiry_date)
     db.session.add(new_referral_code)
     db.session.commit()
-    return jsonify({'message': 'Referral code created successfully'}), 201
+    return jsonify({'message': 'Реферральный код успешно создан'}), 201
 
-# Endpoint для удаления реферального кода
+# Удаление реферального кода
 @app.route('/delete-referral-code', methods=['DELETE'])
 @jwt_required()
 def delete_referral_code():
@@ -83,11 +87,10 @@ def delete_referral_code():
     if referral_code:
         db.session.delete(referral_code)
         db.session.commit()
-        return jsonify({'message': 'Referral code deleted successfully'}), 200
-    else:
-        return jsonify({'message': 'No referral code found for the user'}), 404
+        return jsonify({'message': 'Реферральный код успешно удален'}), 200
+    return jsonify({'message': 'У пользователя не найден реферральный код'}), 404
 
-# Endpoint для получения реферального кода по email адресу реферера
+# Получение реферального кода по email адресу реферера
 @app.route('/get-referral-code', methods=['GET'])
 def get_referral_code():
     referrer_email = request.args.get('referrer_email')
@@ -96,12 +99,9 @@ def get_referral_code():
         referral_code = ReferralCode.query.filter_by(user_id=referrer.id).first()
         if referral_code:
             return jsonify({'referral_code': referral_code.code}), 200
-        else:
-            return jsonify({'message': 'Referral code not found'}), 404
-    else:
-        return jsonify({'message': 'Referrer not found'}), 404
+    return jsonify({'message': 'Реферральный код не найден'}), 404
 
-# Endpoint для регистрации по реферальному коду
+# Регистрация по реферальному коду
 @app.route('/register-by-referral-code', methods=['POST'])
 def register_by_referral_code():
     data = request.get_json()
@@ -116,11 +116,10 @@ def register_by_referral_code():
         new_referral = Referral(referrer_id=referral_code_obj.user_id, referred_id=new_user.id)
         db.session.add(new_referral)
         db.session.commit()
-        return jsonify({'message': 'User registered successfully with referral code'}), 201
-    else:
-        return jsonify({'message': 'Invalid referral code'}), 400
+        return jsonify({'message': 'Пользователь успешно зарегистрировался с помощью реферального кода'}), 201
+    return jsonify({'message': 'Некорректный реферральный код'}), 400
 
-# Endpoint для получения информации о рефералах по id реферера
+# Получение информации о рефералах по id реферера
 @app.route('/referrals/<referrer_id>', methods=['GET'])
 @jwt_required()
 def get_referrals(referrer_id):
@@ -129,8 +128,7 @@ def get_referrals(referrer_id):
         referrals = Referral.query.filter_by(referrer_id=referrer_id).all()
         referral_ids = [referral.referred_id for referral in referrals]
         return jsonify({'referrals': referral_ids}), 200
-    else:
-        return jsonify({'message': 'Unauthorized'}), 401
+    return jsonify({'message': 'Пользователь неавторизован'}), 401
 
 if __name__ == '__main__':
     app.run(debug=True)
